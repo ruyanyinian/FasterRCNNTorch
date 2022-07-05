@@ -13,12 +13,12 @@ except:
     from ._nms_gpu_post_py import _nms_gpu_post
 
 
-@cp.util.memoize(for_each_device=True)
-def _load_kernel(kernel_name, code, options=()):
-    cp.cuda.runtime.free(0)
-    assert isinstance(options, tuple)
-    kernel_code = cp.cuda.compile_with_cache(code, options=options)
-    return kernel_code.get_function(kernel_name)
+# @cp.util.memoize(for_each_device=True)
+# def _load_kernel(kernel_name, code, options=()):
+#     cp.cuda.runtime.free(0)
+#     assert isinstance(options, tuple)
+#     kernel_code = cp.cuda.compile_with_cache(code, options=options)
+#     return kernel_code.get_function(kernel_name)
 
 
 def non_maximum_suppression(bbox, thresh, score=None,

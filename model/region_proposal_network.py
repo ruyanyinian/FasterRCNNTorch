@@ -35,9 +35,7 @@ class RegionProposalNetwork(nn.Module):
         # 在9个base_anchor基础上生成hh*ww*9个anchor，对应到原图坐标
         # feat_stride=16 ，因为是经4次pool后提到的特征，故feature map较
         # 原图缩小了16倍
-        anchor = _enumerate_shifted_anchor(
-            np.array(self.anchor_base),/
-            self.feat_stride, hh, ww)
+        anchor = _enumerate_shifted_anchor(np.array(self.anchor_base), self.feat_stride, hh, ww)
         
         # （hh * ww * 9）/hh*ww = 9 
         n_anchor = anchor.shape[0] // (hh * ww) 
