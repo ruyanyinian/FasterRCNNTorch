@@ -229,7 +229,7 @@ class ProposalCreator(object):
                n_test_post_nms=300,
                min_size=16
                ):
-    self.parent_model = parent_model
+    self.parent_model = parent_model # proposal network
     self.nms_thresh = nms_thresh
     self.n_train_pre_nms = n_train_pre_nms
     self.n_train_post_nms = n_train_post_nms

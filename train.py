@@ -70,17 +70,17 @@ def train(**kwargs):
   # 这里简单解释一下，就是用VOCBboxDataset作为数据
   # 集，然后依次从样例数据库中读取图片出来，还调用了
   # Transform(object)函数，完成图像的调整和随机翻转工作
-  dataloader = data_.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=opt.num_workers)
-  testset = TestDataset(opt)
+  dataloader = data_.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
+  # testset = TestDataset(opt)
   # 将数据装载到dataloader中，shuffle=True允许数据打乱排序，
   # num_workers是设置数据分为几批处理，同样的将测试数据集也
   # 进行同样的处理，然后装载到test_dataloader中
-  test_dataloader = data_.DataLoader(testset,
-                                     batch_size=1,
-                                     num_workers=opt.test_num_workers,
-                                     shuffle=False, \
-                                     pin_memory=True
-                                     )
+  # test_dataloader = data_.DataLoader(testset,
+  #                                    batch_size=1,
+  #                                    num_workers=1,
+  #                                    shuffle=False,
+  #                                    pin_memory=True
+  #                                    )
   # 定义faster_rcnn=FasterRCNNVGG16()训练模型
   faster_rcnn = FasterRCNNVGG16()
   print('model construct completed')

@@ -20,9 +20,9 @@ class VOCBboxDataset:
     #             ' in addition to the above mentioned splits.'
     #         )
     # id_list_file为split.txt，split为'trainval'或者'test'
-    # id_list_file = os.path.join(
-    #   data_dir, 'ImageSets/Main/{0}.txt'.format(split))
-    id_list_file = r'F:\DL_Data\image_detection\VOC\test\VOCdevkit\VOC2007\ImageSets\Main\test.txt'
+    id_list_file = os.path.join(
+      data_dir, 'ImageSets/Main/{0}.txt'.format(split))
+    # id_list_file = r'F:\DL_Data\image_detection\VOC\test\VOCdevkit\VOC2007\ImageSets\Main\test.txt'
     # id_为每个样本文件名
     self.ids = [id_.strip() for id_ in open(id_list_file)]
     # 写到/VOC2007/的路径

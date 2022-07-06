@@ -48,15 +48,9 @@ class FasterRCNNVGG16(FasterRCNN):
   # vgg16通过5个stage下采样16倍
   feat_stride = 16  # downsample 16x for output of conv5 in vgg16
   # 总类别数为20类，三种尺度三种比例的anchor
-  def __init__(self,
-               n_fg_class=20,
-               ratios=[0.5, 1, 2],
-               anchor_scales=[8, 16, 32]
-               ):
-
+  def __init__(self, n_fg_class=20, ratios=[0.5, 1, 2], anchor_scales=[8, 16, 32]):
     # conv5_3及之前的部分，分类器
     extractor, classifier = decom_vgg16() # 这个是网络backbone的feature
-
     # 返回rpn_locs, rpn_scores, rois, roi_indices, anchor
     rpn = RegionProposalNetwork(
       512, 512,

@@ -105,7 +105,7 @@ def __test():
 if __name__ == '__main__':
     __test()
 
-# 对特征图features以基准长度为16、选择合适的ratios和scales取基准锚点
+ # 对特征图features以基准长度为16、选择合适的ratios和scales取基准锚点
  # anchor_base。（选择长度为16的原因是图片大小为600*800左右，基准长度
  # 16对应的原图区域是256*256，考虑放缩后的大小有128*128，512*512比较合适）
 def generate_anchor_base(base_size=16, ratios=[0.5, 1, 2],
