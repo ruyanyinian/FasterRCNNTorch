@@ -216,9 +216,8 @@ def _get_inside_index(anchor, H, W):
 # 下面是ProposalCreator的代码： 这部分的操作不需要进行反向传播
 # 因此可以利用numpy/tensor实现
 class ProposalCreator(object):
-  # 对于每张图片，利用它的feature map，计算（H/16）x(W/16)x9(大概20000)
-  # 个anchor属于前景的概率，然后从中选取概率较大的12000张，利用位置回归参
-  # 数，修正这12000个anchor的位置， 利用非极大值抑制，选出2000个ROIS以及
+  # 1.对feature 开始铺设anchor: 对于每张图片，利用它的feature map，计算（H/16）x(W/16)x9(大概20000)个anchor属于前景的概率，
+  # 然后从中选取概率较大的12000张，利用位置回归参数，修正这12000个anchor的位置， 利用非极大值抑制，选出2000个ROIS以及
   # 对应的位置参数。
   def __init__(self,
                parent_model,
@@ -229,7 +228,7 @@ class ProposalCreator(object):
                n_test_post_nms=300,
                min_size=16
                ):
-    self.parent_model = parent_model # proposal network
+    self.parent_model = parent_model  # proposal network
     self.nms_thresh = nms_thresh
     self.n_train_pre_nms = n_train_pre_nms
     self.n_train_post_nms = n_train_post_nms

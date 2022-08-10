@@ -15,15 +15,16 @@ class RegionProposalNetwork(nn.Module):
       proposal_creator_params=dict(),
   ):
     super(RegionProposalNetwork, self).__init__()
-    # 首先生成上述以（0，0）为中心的9个base anchor
-    self.anchor_base = generate_anchor_base(
+    # 首先生成上述以（0，0）为中心的9个base anchor, 这个是不是将来在feature map上的特征点产生一个9个anchor框.
+    self.anchor_base = generate_anchor_base( # ndarray(9,4)
       anchor_scales=anchor_scales, ratios=ratios)
-    self.feat_stride = feat_stride
+    self.feat_stride = feat_stride  # 16
+    # ProposalCreator的作用是将20000的anchor进行坐标变换, 也就是从xywh变换成一个左上角和右下角的坐标
     self.proposal_layer = ProposalCreator(self, **proposal_creator_params)
     n_anchor = self.anchor_base.shape[0]
-    self.conv1 = nn.Conv2d(in_channels, mid_channels, 3, 1, 1)
-    self.score = nn.Conv2d(mid_channels, n_anchor * 2, 1, 1, 0)
-    self.loc = nn.Conv2d(mid_channels, n_anchor * 4, 1, 1, 0)
+    self.conv1 = nn.Conv2d(in_channels, mid_channels, 3, 1, 1) # in_channels=512, mid_channels=512, kernel_size=3, stride=1,
+    self.score = nn.Conv2d(mid_channels, n_anchor * 2, 1, 1, 0) # mid_channels=512, n_anchor * 2=18, dilation=0, 对于anchor进行前景和背景的区分
+    self.loc = nn.Conv2d(mid_channels, n_anchor * 4, 1, 1, 0) # mid_channels=512, 9*4
     normal_init(self.conv1, 0, 0.01)
     normal_init(self.score, 0, 0.01)
     normal_init(self.loc, 0, 0.01)
@@ -125,7 +126,7 @@ def _enumerate_shifted_anchor(anchor_base, feat_stride, height, width):
   A = anchor_base.shape[0]
   # 读取特征图中元素的总个数
   K = shift.shape[0]
-  #用基础的9个anchor的坐标分别和偏移量相加，最后得出了所有的anchor的坐标，
+  # 用基础的9个anchor的坐标分别和偏移量相加，最后得出了所有的anchor的坐标，
   # 四列可以堪称是左上角的坐标和右下角的坐标加偏移量的同步执行，飞速的从
   # 上往下捋一遍，所有的anchor就都出来了！一共K个特征点，每一个有A(9)个
   # 基本的anchor，所以最后reshape((K*A),4)的形式，也就得到了最后的所有

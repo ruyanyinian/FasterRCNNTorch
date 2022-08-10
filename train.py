@@ -24,7 +24,8 @@ from utils.eval_tool import eval_detection_voc
 # resource.setrlimit(resource.RLIMIT_NOFILE, (20480, rlimit[1]))
 #
 # matplotlib.use('agg')
-
+import torch
+torch.manual_seed(1)
 
 def eval(dataloader, faster_rcnn, test_num=10000):
   # 预测框的位置，预测框的类别和分数
@@ -92,7 +93,7 @@ def train(**kwargs):
   if opt.load_path:
     trainer.load(opt.load_path)
     print('load pretrained model from %s' % opt.load_path)
-  trainer.vis.text(dataset.db.label_names, win='labels')
+  # trainer.vis.text(dataset.db.label_names, win='labels')
   best_map = 0
   lr_ = opt.lr
   # 用一个for循环开始训练过程，而训练迭代的次数

@@ -93,6 +93,7 @@ class Transform(object):
 
     return img, bbox, label, scale
 
+
 # 训练集样本的生成
 class Dataset(object):
   def __init__(self, opt):
@@ -114,6 +115,7 @@ class Dataset(object):
 
   def __len__(self):
     return len(self.db)
+
 
 # 测试集样本的生成
 class TestDataset(object):

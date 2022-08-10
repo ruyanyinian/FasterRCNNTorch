@@ -69,7 +69,7 @@ class FasterRCNNTrainer(nn.Module):
     img_size = (H, W)
 
     # vgg16 conv5_3之前的部分提取图片的特征
-    features = self.faster_rcnn.extractor(imgs) # imgs (1,3,600,800)
+    features = self.faster_rcnn.extractor(imgs) # imgs (1,3,600,800), features=(1,512,37,50)
 
     # rpn_locs的维度（hh*ww*9，4），rpn_scores维度为（hh*ww*9，2），
     #  rois的维度为（2000,4），roi_indices用不到，anchor的维度为
