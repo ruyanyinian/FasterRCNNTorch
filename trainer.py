@@ -176,6 +176,8 @@ class FasterRCNNTrainer(nn.Module):
     self.optimizer.step()
     self.update_meters(losses)
     return losses
+
+
   # 模型保存
   def save(self, save_optimizer=False, save_path=None, **kwargs):
     save_dict = dict()

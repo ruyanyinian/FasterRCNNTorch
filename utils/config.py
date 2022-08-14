@@ -7,7 +7,7 @@ from pprint import pprint
 
 class Config:
   # data
-  voc_data_dir = '/home/qy/data/image_detection/VOC/train/VOCdevkit/VOC2007'
+  voc_data_dir = r'E:\Data\image_detection\VOC\train\VOCdevkit\VOC2007'
   min_size = 600  # image resize
   max_size = 1000  # image resize
   num_workers = 1

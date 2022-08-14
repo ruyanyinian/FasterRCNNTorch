@@ -19,12 +19,12 @@ class RegionProposalNetwork(nn.Module):
     self.anchor_base = generate_anchor_base( # ndarray(9,4)
       anchor_scales=anchor_scales, ratios=ratios)
     self.feat_stride = feat_stride  # 16
-    # ProposalCreator的作用是将20000的anchor进行坐标变换, 也就是从xywh变换成一个左上角和右下角的坐标
+    # ProposalCreator的作用是将20000的anchor进行坐标变换, 也就是从xywh变换成一个左上角和右下角的坐标, 以及可能要做一个nms过滤框的作用
     self.proposal_layer = ProposalCreator(self, **proposal_creator_params)
     n_anchor = self.anchor_base.shape[0]
     self.conv1 = nn.Conv2d(in_channels, mid_channels, 3, 1, 1) # in_channels=512, mid_channels=512, kernel_size=3, stride=1,
     self.score = nn.Conv2d(mid_channels, n_anchor * 2, 1, 1, 0) # mid_channels=512, n_anchor * 2=18, dilation=0, 对于anchor进行前景和背景的区分
-    self.loc = nn.Conv2d(mid_channels, n_anchor * 4, 1, 1, 0) # mid_channels=512, 9*4
+    self.loc = nn.Conv2d(mid_channels, n_anchor * 4, 1, 1, 0) # mid_channels=512, 9*4 对一阶段的监督
     normal_init(self.conv1, 0, 0.01)
     normal_init(self.score, 0, 0.01)
     normal_init(self.loc, 0, 0.01)
@@ -32,34 +32,35 @@ class RegionProposalNetwork(nn.Module):
   def forward(self, x, img_size, scale=1.):
     # x的尺寸为(batch_size，512,H/16,W/16），其中H，W分别为原图的高和宽, 原图的H是600, w是800,那么经过16倍的降采样是 #torch.Size([1, 512, 37, 50])
     # x为feature map，n为batch_size,此版本代码为1. hh，ww即为宽高
-    n, _, hh, ww = x.shape
+    n, _, hh, ww = x.shape # hh=37,  ww=50
     # 在9个base_anchor基础上生成hh*ww*9个anchor，对应到原图坐标
     # feat_stride=16 ，因为是经4次pool后提到的特征，故feature map较
     # 原图缩小了16倍
+    # Note: 最终我们对特征图上的每一个特征点铺设9个anchor, 比如37*50=1850*9=(16650,4)
     anchor = _enumerate_shifted_anchor(np.array(self.anchor_base), self.feat_stride, hh, ww)
 
     # （hh * ww * 9）/hh*ww = 9
     n_anchor = anchor.shape[0] // (hh * ww)
     # 512个3x3卷积(512, H/16,W/16)
-    h = F.relu(self.conv1(x))
+    h = F.relu(self.conv1(x))  # (1,512,37,50)
     # n_anchor（9）* 4个1x1卷积，回归坐标偏移量。（9*4，hh,ww)
-    rpn_locs = self.loc(h)
+    rpn_locs = self.loc(h) # Note:(1,36,37,50)
     # UNNOTE: check whether need contiguous
     # A: Yes
     # 转换为（n，hh，ww，9*4）后变为（n，hh*ww*9，4）
-    rpn_locs = rpn_locs.permute(0, 2, 3, 1).contiguous().view(n, -1, 4)
+    rpn_locs = rpn_locs.permute(0, 2, 3, 1).contiguous().view(n, -1, 4) # note:(1,16650,4)
     # n_anchor（9）*2个1x1卷积，回归类别。（9*2，hh,ww）
-    rpn_scores = self.score(h)
+    rpn_scores = self.score(h) # Note:(1,18,37,50)
     # 转换为（n，hh，ww，9*2）
-    rpn_scores = rpn_scores.permute(0, 2, 3, 1).contiguous()
+    rpn_scores = rpn_scores.permute(0, 2, 3, 1).contiguous() # note:(1,37,50,18)
     # 计算{Softmax}(x_{i}) = \{exp(x_i)}{\sum_j exp(x_j)}
-    rpn_softmax_scores = F.softmax(rpn_scores.view(n, hh, ww, n_anchor, 2), dim=4)
+    rpn_softmax_scores = F.softmax(rpn_scores.view(n, hh, ww, n_anchor, 2), dim=4) # (1,37,50,9,2) 每一个特征点对应的anchors的类别差距
     # 得到前景的分类概率
     rpn_fg_scores = rpn_softmax_scores[:, :, :, :, 1].contiguous()
     # 得到所有anchor的前景分类概率
-    rpn_fg_scores = rpn_fg_scores.view(n, -1)
+    rpn_fg_scores = rpn_fg_scores.view(n, -1) # rpn_fg_scores=torch.Size([1, 16650])
     # 得到每一张feature map上所有anchor的网络输出值
-    rpn_scores = rpn_scores.view(n, -1, 2)
+    rpn_scores = rpn_scores.view(n, -1, 2) # torch.Size([1, 16650, 2])
 
     rois = list()
     roi_indices = list()
@@ -72,10 +73,10 @@ class RegionProposalNetwork(nn.Module):
       # 个anchor属于前景的概率，取前12000个并经过NMS得到2000个
       # 近似目标框G^的坐标。roi的维度为(2000,4)
       roi = self.proposal_layer(
-        rpn_locs[i].cpu().data.numpy(),
-        rpn_fg_scores[i].cpu().data.numpy(),
-        anchor, img_size,
-        scale=scale)
+        rpn_locs[i].cpu().data.numpy(), # (16650,4)
+        rpn_fg_scores[i].cpu().data.numpy(), # (1,16650)
+        anchor, img_size, # anchor=(16650,4), img_size(600,800)
+        scale=scale) # scale=1.6
       batch_index = i * np.ones((len(roi),), dtype=np.int32)
       # rois为所有batch_size的roi
       rois.append(roi)
@@ -107,21 +108,21 @@ def _enumerate_shifted_anchor(anchor_base, feat_stride, height, width):
   # it seems that it can't be boosed using GPU
   import numpy as xp
   # 纵向偏移量（0，16，32，...）
-  shift_y = xp.arange(0, height * feat_stride, feat_stride)
+  shift_y = xp.arange(0, height * feat_stride, feat_stride) # height=37
   # 横向偏移量（0，16，32，...）
-  shift_x = xp.arange(0, width * feat_stride, feat_stride)
+  shift_x = xp.arange(0, width * feat_stride, feat_stride) # width=50
   # shift_x = [[0，16，32，..],[0，16，32，..],[0，16，32，..]...],
   # shift_y = [[0，0，0，..],[16，16，16，..],[32，32，32，..]...],
   # 就是形成了一个纵横向偏移量的矩阵，也就是特征图的每一点都能够通过这个
   # 矩阵找到映射在原图中的具体位置！
-  shift_x, shift_y = xp.meshgrid(shift_x, shift_y)
+  shift_x, shift_y = xp.meshgrid(shift_x, shift_y) # shift_x = (37, 50),  shift_y = (37,50)
   # 经过刚才的变化，其实大X,Y的元素个数已经相同，看矩阵的结构也能看出，
   # 矩阵大小是相同的，X.ravel()之后变成一行，此时shift_x,shift_y的元
   # 素个数是相同的，都等于特征图的长宽的乘积(像素点个数)，不同的是此时
   # 的shift_x里面装得是横向看的x的一行一行的偏移坐标，而此时的y里面装
   # 的是对应的纵向的偏移坐标！
   shift = xp.stack((shift_y.ravel(), shift_x.ravel(),
-                    shift_y.ravel(), shift_x.ravel()), axis=1)
+                    shift_y.ravel(), shift_x.ravel()), axis=1) # (1850, 4) 其中1850相当于height(37) + width(50)
   # A=9
   A = anchor_base.shape[0]
   # 读取特征图中元素的总个数
@@ -134,8 +135,8 @@ def _enumerate_shifted_anchor(anchor_base, feat_stride, height, width):
   # anchor = anchor.reshape((K * A, 4)).astype(np.float32)
 
   anchor = anchor_base.reshape((1, A, 4)) + \
-           shift.reshape((1, K, 4)).transpose((1, 0, 2))
-  anchor = anchor.reshape((K * A, 4)).astype(np.float32)
+           shift.reshape((1, K, 4)).transpose((1, 0, 2)) # anchor=(1, 9, 4) + (1850,1,4) = (1850,9,4)
+  anchor = anchor.reshape((K * A, 4)).astype(np.float32) # (1850,9,4).reshape(1850*9, 4) # 获取到了每一个anchor
   return anchor
 
 

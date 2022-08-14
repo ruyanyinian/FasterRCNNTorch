@@ -1,13 +1,12 @@
 import numpy as np
-import cupy as cp
-
+import torch
+from torchvision.ops import nms
 from model.utils.bbox_tools import bbox2loc, bbox_iou, loc2bbox
-from model.utils.nms import non_maximum_suppression
-
 
 # 下面是ProposalTargetCreator代码：ProposalCreator产生2000个ROIS，
 # 但是这些ROIS并不都用于训练，经过本ProposalTargetCreator的筛选产生
 # 128个用于自身的训练
+
 
 class ProposalTargetCreator(object):
   def __init__(self,
@@ -216,7 +215,7 @@ def _get_inside_index(anchor, H, W):
 # 下面是ProposalCreator的代码： 这部分的操作不需要进行反向传播
 # 因此可以利用numpy/tensor实现
 class ProposalCreator(object):
-  # 1.对feature 开始铺设anchor: 对于每张图片，利用它的feature map，计算（H/16）x(W/16)x9(大概20000)个anchor属于前景的概率，
+  # 对于每张图片，利用它的feature map，计算（H/16）x(W/16)x9(大概20000)个anchor属于前景的概率，
   # 然后从中选取概率较大的12000张，利用位置回归参数，修正这12000个anchor的位置， 利用非极大值抑制，选出2000个ROIS以及
   # 对应的位置参数。
   def __init__(self,
@@ -250,7 +249,7 @@ class ProposalCreator(object):
       n_post_nms = self.n_test_post_nms  # 经过NMS后有300个
 
     # 将bbox转换为近似groudtruth的anchor(即rois)
-    roi = loc2bbox(anchor, loc)
+    roi = loc2bbox(anchor, loc) # anchor(16650,4), loc(16650,4), 也就是将框转换成左上角和右下角的坐标, rois=(16650,4)
 
     # slice表示切片操作
     # 裁剪将rois的ymin,ymax限定在[0,H]
@@ -263,9 +262,9 @@ class ProposalCreator(object):
     # Remove predicted boxes with either height or width < threshold.
     min_size = self.min_size * scale  # 16
     # rois的宽
-    hs = roi[:, 2] - roi[:, 0]
+    hs = roi[:, 2] - roi[:, 0] # (16650,)
     # rois的高
-    ws = roi[:, 3] - roi[:, 1]
+    ws = roi[:, 3] - roi[:, 1] # (16650,)
     # 确保rois的长宽大于最小阈值
     keep = np.where((hs >= min_size) & (ws >= min_size))[0]
     roi = roi[keep, :]
@@ -289,11 +288,17 @@ class ProposalCreator(object):
     # #（具体需要看NMS的原理以及输入参数的作用）调用非极大值抑制函数，
     # 将重复的抑制掉，就可以将筛选后ROIS进行返回。经过NMS处理后Train
     # 数据集得到2000个框，Test数据集得到300个框
-    keep = non_maximum_suppression(
-      np.ascontiguousarray(np.asarray(roi)),
-      thresh=self.nms_thresh)
+    # keep = non_maximum_suppression(
+    #   np.ascontiguousarray(np.asarray(roi)),
+    #   thresh=self.nms_thresh)
+
+    keep = nms(
+      torch.from_numpy(roi).cuda(),
+      torch.from_numpy(score).cuda(),
+      self.nms_thresh)
+
     if n_post_nms > 0:
       keep = keep[:n_post_nms]
     # 取出最终的2000或300个rois
-    roi = roi[keep]
+    roi = roi[keep.cpu().numpy()]
     return roi

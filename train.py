@@ -4,7 +4,6 @@
 import os
 
 # import ipdb
-import matplotlib
 from tqdm import tqdm
 
 from utils.config import opt

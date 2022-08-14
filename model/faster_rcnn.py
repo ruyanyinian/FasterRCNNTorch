@@ -2,10 +2,9 @@ from __future__ import absolute_import
 from __future__ import division
 import torch as t
 import numpy as np
-import cupy as cp
 from utils import array_tool as at
 from model.utils.bbox_tools import loc2bbox
-from model.utils.nms import non_maximum_suppression
+from torchvision.ops import nms
 
 from torch import nn
 from data.dataset import preprocess
@@ -105,13 +104,15 @@ class FasterRCNN(nn.Module):
       mask = prob_l > self.score_thresh
       cls_bbox_l = cls_bbox_l[mask]
       prob_l = prob_l[mask]
-      keep = non_maximum_suppression(
-        cp.array(cls_bbox_l), self.nms_thresh, prob_l)
-      keep = cp.asnumpy(keep)
-      bbox.append(cls_bbox_l[keep])
+      # keep = non_maximum_suppression(
+      #   cp.array(cls_bbox_l), self.nms_thresh, prob_l)
+      # keep = cp.asnumpy(keep)
+      # bbox.append(cls_bbox_l[keep])
+      keep = nms(cls_bbox_l, prob_l, self.nms_thresh)
+      bbox.append(cls_bbox_l[keep].cpu().numpy())
       # The labels are in [0, self.n_class - 2].
       label.append((l - 1) * np.ones((len(keep),)))
-      score.append(prob_l[keep])
+      score.append(prob_l[keep].cpu().numpy())
     bbox = np.concatenate(bbox, axis=0).astype(np.float32)
     label = np.concatenate(label, axis=0).astype(np.int32)
     score = np.concatenate(score, axis=0).astype(np.float32)
@@ -175,12 +176,13 @@ class FasterRCNN(nn.Module):
       # 对于分类得分roi_scores，我们需要将其经过softmax后转为概率prob。
       # 值得注意的是我们此时得到的是对所有输入128个roi以及位置参数、得分
       # 的预处理，下面将筛选出最终的预测结果。
-      prob = at.tonumpy(F.softmax(at.totensor(roi_score), dim=1))
+      prob = (F.softmax(at.totensor(roi_score), dim=1))
 
-      raw_cls_bbox = at.tonumpy(cls_bbox)
-      raw_prob = at.tonumpy(prob)
+      # raw_cls_bbox = at.tonumpy(cls_bbox)
+      # raw_prob = at.tonumpy(prob)
+      # bbox, label, score = self._suppress(raw_cls_bbox, raw_prob)
 
-      bbox, label, score = self._suppress(raw_cls_bbox, raw_prob)
+      bbox, label, score = self._suppress(cls_bbox, prob)
       bboxes.append(bbox)
       labels.append(label)
       scores.append(score)
